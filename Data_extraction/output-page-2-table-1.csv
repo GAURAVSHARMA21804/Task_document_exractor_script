@@ -1,0 +1,49 @@
+"Student ID
+Name
+Age
+Grade
+Email
+City","","","","",""
+"101
+Alice 
+20
+A
+alice.johnson
+New York
+Johnson
+@example.c
+om","","","","",""
+"102
+Bob Smith
+19
+B
+bob.smith@
+Los Angeles
+example.co
+m","","","","",""
+"103","Charlie 
+Brown","21","A","charlie.brow
+n@example.
+com","Chicago"
+"104","Diana Prince","22","C","diana.prince
+@example.c
+om","Houston"
+"105","Ethan Hunt","20","B","ethan.hunt@
+example.co
+m","Phoenix"
+"106","Fiona 
+Gallagher","23","A","fiona.gallagh
+er@example.
+com","Philadelphia"
+"107","George 
+Lucas","19","C","george.lucas
+@example.c
+om","San Antonio"
+"108","Hannah 
+Montana","21","B","hannah.mon
+tana@examp
+le.com","San Diego"
+"109","Ian 
+Somerhalder","20","A","ian.somerhal
+der@exampl
+e.com","Dallas"
