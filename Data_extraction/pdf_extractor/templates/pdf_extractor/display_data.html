@@ -40,7 +40,10 @@
             {% endfor %}
         </tbody>
     </table>
-
+    <h1>Table data</h1>
+    {% for data in table_data%}
+        <p>{{data.data}}</p>
+    {% endfor %}
     <h1>Image</h1>
     {% for image in images %}
         

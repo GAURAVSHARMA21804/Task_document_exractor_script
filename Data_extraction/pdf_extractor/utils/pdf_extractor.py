@@ -1,6 +1,6 @@
 import os
 from django.apps import apps
-from pdf_extractor.models import Paragraph, Student , PDFImage
+from pdf_extractor.models import Paragraph, Student , PDFImage , ExtractedTable
 import fitz
 import re
 from PIL import Image
@@ -12,29 +12,30 @@ from django.core.files.base import ContentFile
 from PIL import Image
 
 
+
 def clean_paragraph_text(paragraph_content):
-    # Remove unwanted numbers or page references that are in the middle of the text
+    # Removing unwanted numbers or page references that are in the middle of the text
     # This removes any numbers followed by a newline or space, like ' 1', ' 2', etc.
-    cleaned_text = re.sub(r'\s*\d+\s*$', '', paragraph_content.strip())  # Removes digits at the end (page numbers)
-    cleaned_text = re.sub(r'\s*\d+\s*', ' ', cleaned_text)  # Removes any number in the middle of the text
+    cleaned_text = re.sub(r'\s*\d+\s*$', '', paragraph_content.strip())  # Removing digits at the end (page numbers)
+    cleaned_text = re.sub(r'\s*\d+\s*', ' ', cleaned_text)  # Removing any number in the middle of the text
     return cleaned_text
 
 def extract_data_from_pdf(pdf_file_name):
-    # Get the base directory of your app
     
-    app_config = apps.get_app_config('pdf_extractor')  # Replace 'your_app_name' with your actual app name
+    
+    app_config = apps.get_app_config('pdf_extractor')  
     pdfs_folder_path = os.path.join(app_config.path, "pdfs")
     
-    # Construct the full path to the PDF file
+    
     pdf_path = os.path.join(pdfs_folder_path, pdf_file_name)
 
-    # Ensure the file exists
+    
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"File not found: {pdf_path}")
 
-    # Open the PDF file
+    
 
-# Open PDF and extract full text
+# Opening PDF and extract full text
     doc = fitz.open(pdf_path)
     print("PDF successfully opened!")
     full_text = ""
@@ -60,115 +61,171 @@ def extract_data_from_pdf(pdf_file_name):
         if paragraph_content.strip():
             Paragraph.objects.create(text=formatted_paragraph)
         
-    # # Process student data
-    tables = camelot.read_pdf(pdf_path, pages='2')  # Page with student data table
+    # # Processing student data
+    # tables = camelot.read_pdf(pdf_path, pages='2')  
 
-    if tables.n == 0:
-        raise ValueError("No tables found on the specified page.")
+    # if tables.n == 0:
+    #     raise ValueError("No tables found on the specified page.")
 
-    # Convert the first table to DataFrame
-    df = tables[0].df
+    
+    # df = tables[0].df
 
-    # Display raw extracted data
-    print("Raw Extracted Data:")
-    print(df)
+    # print("Raw Extracted Data:")
+    # print(df)
 
    
-    # Clean the data
-    def clean_row(row):
-        try:
-            # Split columns properly and remove unwanted newline characters
-            student_id = row[0].strip() if row[0].strip().isdigit() else None
-            name_parts = re.sub(r'\n', ' ', row[1]).split()  # Fix broken names
-            name = " ".join(name_parts).strip()
-            age = row[2].strip() if row[2].isdigit() else None
-            grade = row[3].strip() if row[3].strip() else None
-            email = re.sub(r'\s+', '', row[4]).strip()
-            city = re.sub(r'\n', '', row[5]).strip()
+    # # Cleaning the data
+    # def clean_row(row):
+    #     try:
+    #         # Split columns properly and remove unwanted newline characters
+    #         student_id = row[0].strip() if row[0].strip().isdigit() else None
+    #         name_parts = re.sub(r'\n', ' ', row[1]).split()  
+    #         name = " ".join(name_parts).strip()
+    #         age = row[2].strip() if row[2].isdigit() else None
+    #         grade = row[3].strip() if row[3].strip() else None
+    #         email = re.sub(r'\s+', '', row[4]).strip()
+    #         city = re.sub(r'\n', '', row[5]).strip()
 
-            # Skip rows where important fields are missing
-            if not student_id or not name or not age or not email or not city:
-                return None
-
-            return {
-                "student_id": student_id,
-                "name": name,
-                "age": age,
-                "grade": grade,
-                "email": email,
-                "city": city
-            }
-        except Exception as e:
-            print(f"Error cleaning row: {e}")
-            return None
-
-    # Skip the first row (header) and clean subsequent rows
-    cleaned_data = []
-    for index, row in df.iterrows():
-        if index == 0:  # Skip header row entirely
-            continue
-        cleaned_row = clean_row(row)
-        if cleaned_row:
-            cleaned_data.append(cleaned_row)
-
-    # Converting cleaned data into DataFrame
-    cleaned_df = pd.DataFrame(cleaned_data)
-
-    # Display cleaned data
-    print("Cleaned Data:")
-    print(cleaned_df)
-    raw_data = [
-            "101\nAlice \n20\nA\nalice.johnson\nNew York",
-            "102\nBob Smith\n19\nB\nbob.smith@\nLos Angeles"
-            ]
-    
-
-    
-    for entry in raw_data:
-        lines = entry.split("\n")
-        try:
-            student_id = int(lines[0])
-            name = lines[1].strip()
-            age = int(lines[2])
-            grade = lines[3].strip()
-            email = re.sub(r'\s+', '', ''.join(lines[4:6]))  # Remove spaces/newlines in email
-            city = lines[-1].strip()
-
-            # Saving in database
-            Student.objects.update_or_create(
-                        student_id=student_id,
-                        defaults={
-                            'name': name,
-                            'age': age,
-                            'grade': grade,
-                            'email': email,
-                            'city': city
-                        }
-                    )
-            print(f"Saved: {name}")
-            print("#####################")
-        except Exception as e:
-            print(f"Error processing entry: {entry} - {e}")
-
-    # Now you can save the cleaned data to the database
-    for _, row in cleaned_df.iterrows():
-        try:
-            Student.objects.update_or_create(
-                student_id=int(row["student_id"]),
-                defaults={
-                    "name": row["name"].strip(),
-                    "age": int(row["age"]),
-                    "grade": row["grade"].strip(),
-                    "email": row["email"].strip(),
-                    "city": row["city"].strip(),
-                }
-            )
-            print(f"Saved student: {row['name']}")
-        except Exception as e:
-            print(f"Error saving student {row['student_id']}: {e}")  
             
+    #         if not student_id or not name or not age or not email or not city:
+    #             return None
+
+    #         return {
+    #             "student_id": student_id,
+    #             "name": name,
+    #             "age": age,
+    #             "grade": grade,
+    #             "email": email,
+    #             "city": city
+    #         }
+    #     except Exception as e:
+    #         print(f"Error cleaning row: {e}")
+    #         return None
+
     
-    # Assuming `doc` is your fitz.Document object
+    # cleaned_data = []
+    # for index, row in df.iterrows():
+    #     if index == 0:  
+    #         continue
+    #     cleaned_row = clean_row(row)
+    #     if cleaned_row:
+    #         cleaned_data.append(cleaned_row)
+
+    # # Converting cleaned data into DataFrame
+    # cleaned_df = pd.DataFrame(cleaned_data)
+
+    # # Display cleaned data
+    # print("Cleaned Data:")
+    # print(cleaned_df)
+    # raw_data = [
+    #         "101\nAlice \n20\nA\nalice.johnson\nNew York",
+    #         "102\nBob Smith\n19\nB\nbob.smith@\nLos Angeles"
+    #         ]
+    
+
+    
+    # for entry in raw_data:
+    #     lines = entry.split("\n")
+    #     try:
+    #         student_id = int(lines[0])
+    #         name = lines[1].strip()
+    #         age = int(lines[2])
+    #         grade = lines[3].strip()
+    #         email = re.sub(r'\s+', '', ''.join(lines[4:6]))  # Remove spaces/newlines in email
+    #         city = lines[-1].strip()
+
+    #         # Saving in database
+    #         Student.objects.update_or_create(
+    #                     student_id=student_id,
+    #                     defaults={
+    #                         'name': name,
+    #                         'age': age,
+    #                         'grade': grade,
+    #                         'email': email,
+    #                         'city': city
+    #                     }
+    #                 )
+    #         print(f"Saved: {name}")
+    #         print("#####################")
+    #     except Exception as e:
+    #         print(f"Error processing entry: {entry} - {e}")
+
+    
+    # for _, row in cleaned_df.iterrows():
+    #     try:
+    #         Student.objects.update_or_create(
+    #             student_id=int(row["student_id"]),
+    #             defaults={
+    #                 "name": row["name"].strip(),
+    #                 "age": int(row["age"]),
+    #                 "grade": row["grade"].strip(),
+    #                 "email": row["email"].strip(),
+    #                 "city": row["city"].strip(),
+    #             }
+    #         )
+    #         print(f"Saved student: {row['name']}")
+    #     except Exception as e:
+    #         print(f"Error saving student {row['student_id']}: {e}")  
+            
+      
+    
+    # Extract tables from the PDF
+    tables = camelot.read_pdf(pdf_path, pages='all', flavor='lattice')  # Use lattice flavor for PDFs with table borders
+
+    if len(tables) == 0:
+        raise ValueError("No tables found in the PDF.")
+
+
+    def clean_data(df): 
+        
+        
+        column_names = df.iloc[0, 0].split('\n')  # This assumes the first cell contains concatenated headers
+        df.columns = column_names
+        
+        # Removing the first row which contains the merged header
+        df = df.drop(0).reset_index(drop=True)
+        
+        # Cleaning the data by removing newline characters from strings and trimming spaces
+        df = df.applymap(lambda x: x.replace('\n', ' ').strip() if isinstance(x, str) else x)
+        
+        # Droping rows where all values are NaN
+        df = df.dropna(how='all')
+        
+        # Droping any empty columns
+        df = df.dropna(axis=1, how='all')
+        
+        # Convert numeric columns to appropriate types
+        for col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='ignore')
+        
+        # Reset index after cleaning
+        df.reset_index(drop=True, inplace=True)
+        print(df)
+
+        return df
+
+
+    # Iterate through each table and store it in the database
+    for table_index, table in enumerate(tables):
+        # Converting the table into a Pandas DataFrame
+        df = table.df
+
+        # Cleaning the DataFrame
+        cleaned_df = clean_data(df)
+
+        # Convert the cleaned DataFrame into a list of dictionaries (one dictionary per row)
+        table_data = cleaned_df.to_dict(orient='records')
+
+        
+        print(table_data)  
+        # Store the cleaned data in the database
+        ExtractedTable.objects.create(
+            table_name=f"Table {table_index + 1}",
+            data=table_data  # Store the data as JSON
+        )
+
+    print("Data extraction and storage complete.")        
+        
     for page_num, page in enumerate(doc, start=1):
         for img_index, img in enumerate(page.get_images(full=True), start=1):
             xref = img[0]
@@ -176,25 +233,25 @@ def extract_data_from_pdf(pdf_file_name):
             image_bytes = base_image["image"]
             image_ext = base_image["ext"]
 
-            # Convert bytes to an image object using PIL
+            
             image = Image.open(BytesIO(image_bytes))
 
-            # Save the image to the database
+            # Saving the image to the database
             try:
                 img_io = BytesIO()
-                image.save(img_io, format=image_ext.upper())  # Use the correct extension
+                image.save(img_io, format=image_ext.upper())  
                 img_io.seek(0)
                 
                 pdf_image = PDFImage()
-                # Save image to ImageField
+                
                 pdf_image.image.save(
-                    f"page_{page_num}_img_{img_index}.{image_ext}",  # Filename
+                    f"page_{page_num}_img_{img_index}.{image_ext}",  
                     ContentFile(img_io.read()),
-                    save=False  # Delay save to add image_data
+                    save=False  
                 )
-                # Save binary data to image_data field
+                
                 pdf_image.image_data = image_bytes
-                pdf_image.save()  # Save the model with both fields populated
+                pdf_image.save()  
                 print(f"Saved image from page {page_num}, index {img_index}")
             except Exception as e:
                 print(f"Error saving image from page {page_num}, index {img_index}: {e}")

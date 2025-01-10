@@ -1,7 +1,5 @@
 from django.db import models
-
-# Create your models here.
-from django.db import models
+from jsonfield import JSONField
 
 class Paragraph(models.Model):
     text = models.TextField()
@@ -21,6 +19,13 @@ class Student(models.Model):
     def __str__(self):
         return self.name
 
+class ExtractedTable(models.Model):
+    table_name = models.CharField(max_length=255)
+    data = JSONField()  # Store table rows as JSON
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.table_name
 
 class PDFImage(models.Model):
     image = models.ImageField(upload_to='pdf_images/')
